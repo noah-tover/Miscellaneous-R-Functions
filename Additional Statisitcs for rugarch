@@ -1,0 +1,27 @@
+# This function allows for further analysis of ugarchroll performance
+# It compares the percent changes of the predicted volatility to the actual volatility
+additional_garch_stats <- function(rollobject, actual){
+  if(!is.xts(rollobject)){
+    rollobject <- as.xts(as.data.frame(rollobject))
+  }
+  sigma <- rollobject$Sigma
+  colnames(sigma) <- 'sigma'
+  sigma$actual <- actual[index(sigma)]
+  sigma$actual <- lag(sigma$actual)
+  sigmachange <- ROC(sigma, 1)
+  sigmachange <- na.omit(sigmachange)
+  cor <- cor(sigmachange$sigma, sigmachange$actual)
+  # Divide total occurences where actual pct changes where in expected direction to all times that direction was predicted
+  pct_down <- length(index(sigmachange[(sigmachange$sigma < 0) & (sigmachange$actual < 0)])) / length(index(sigmachange[sigmachange$sigma < 0]))
+  pct_up <- length(index(sigmachange[(sigmachange$sigma > 0) & (sigmachange$actual > 0)])) / length(index(sigmachange[sigmachange$sigma > 0]))
+  print(paste("The percent change predicted by GARCH and the next day's actual percentage change in volatility have a correlation of", as.character(cor)))
+  print(paste("The GARCH model accurately predicted a move downward", as.character(pct_down * 100), "percent of the time"))
+  print(paste("The GARCH model accurately predicted a move upward", as.character(pct_up * 100), "percent of the time"))
+}
+## Example function call 
+data <- your_data
+spec <- ugarchspec(variance.model = list(model = "gjrGARCH", garchOrder = c(1, 1)),
+                       mean.model = list(armaOrder = c(0, 0)),
+                       distribution.model = "sstd")
+roll <- ugarchroll(spec, data, n.ahead = n.ahead,refit.every = 100, refit.window = "moving", solver = 'hybrid')
+additional_garch_stats(rollobject = roll, actual = volatility(Cl(MS)))
